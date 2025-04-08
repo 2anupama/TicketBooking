@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Cinema Ticket Booking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">Cinema Ticket Booking</a>
+            <div class="d-flex">
+                <a href="/booking" class="btn btn-outline-light me-2">Book Tickets</a>
+                <button id="logoutBtn" class="btn btn-outline-light">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>User Profile</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3 text-center">
+                            <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 100px; height: 100px; font-size: 40px;">
+                                <span id="userInitials">U</span>
+                            </div>
+                        </div>
+                        <div class="user-info">
+                            <p><strong>Name:</strong> <span id="userName">Loading...</span></p>
+                            <p><strong>Email:</strong> <span id="userEmail">Loading...</span></p>
+                            <p><strong>Member Since:</strong> <span id="userCreatedAt">Loading...</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>Booking Dashboard</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-secondary active" id="upcomingBtn">Upcoming</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="historyBtn">History</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="bookingsContainer">
+                            <div class="text-center py-5" id="loadingBookings">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Loading your bookings...</p>
+                            </div>
+                            
+                            <div id="noBookingsMessage" class="text-center py-5 d-none">
+                                <p>You don't have any bookings yet.</p>
+                                <a href="/booking" class="btn btn-primary">Book Now</a>
+                            </div>
+                            
+                            <div id="bookingsList" class="d-none">
+                                <!-- Bookings will be listed here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            fetch('/api/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.authenticated) {
+                        window.location.href = '/login';
+                    } else {
+                        fetchUserProfile();
+                        fetchUserBookings('upcoming');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking auth status:', error);
+                    window.location.href = '/login';
+                });
+
+            // Logout button event
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        window.location.href = '/';
+                    }
+                } catch (error) {
+                    console.error('Error during logout:', error);
+                }
+            });
+
+            // Tab buttons events
+            document.getElementById('upcomingBtn').addEventListener('click', function() {
+                document.getElementById('upcomingBtn').classList.add('active');
+                document.getElementById('historyBtn').classList.remove('active');
+                fetchUserBookings('upcoming');
+            });
+
+            document.getElementById('historyBtn').addEventListener('click', function() {
+                document.getElementById('historyBtn').classList.add('active');
+                document.getElementById('upcomingBtn').classList.remove('active');
+                fetchUserBookings('history');
+            });
+
+            // Fetch user profile
+            function fetchUserProfile() {
+                fetch('/api/user/profile')
+                    .then(response => response.json())
+                    .then(user => {
+                        document.getElementById('userName').textContent = user.name;
+                        document.getElementById('userEmail').textContent = user.email;
+                        document.getElementById('userCreatedAt').textContent = new Date(user.createdAt).toLocaleDateString();
+                        
+                        // Set user initials
+                        const nameParts = user.name.split(' ');
+                        const initials = nameParts.length > 1 
+                            ? nameParts[0][0] + nameParts[1][0] 
+                            : user.name.substring(0, 2);
+                        document.getElementById('userInitials').textContent = initials.toUpperCase();
+                    })
+                    .catch(error => console.error('Error fetching user profile:', error));
+            }
+
+            // Fetch user bookings
+            function fetchUserBookings(type) {
+                document.getElementById('loadingBookings').classList.remove('d-none');
+                document.getElementById('noBookingsMessage').classList.add('d-none');
+                document.getElementById('bookingsList').classList.add('d-none');
+                
+                fetch(`/api/user/bookings?type=${type}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch bookings');
+                        }
+                        return response.json();
+                    })
+                    .then(bookings => {
+                        document.getElementById('loadingBookings').classList.add('d-none');
+                        
+                        if (!Array.isArray(bookings) || bookings.length === 0) {
+                            document.getElementById('noBookingsMessage').classList.remove('d-none');
+                            return;
+                        }
+                        
+                        const bookingsList = document.getElementById('bookingsList');
+                        bookingsList.innerHTML = '';
+                        bookingsList.classList.remove('d-none');
+                        
+                        bookings.forEach(booking => {
+                            const bookingCard = document.createElement('div');
+                            bookingCard.className = 'card mb-3 booking-card';
+                            bookingCard.innerHTML = `
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="card-title mb-0">${booking.movieTitle || 'Unknown Movie'}</h5>
+                                        <span class="badge bg-primary">${booking.showTime || 'No time'}</span>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="card-text"><strong>Date:</strong> ${formatDate(booking.showDate)}</p>
+                                            <p class="card-text"><strong>Seat:</strong> ${booking.seatNumber || 'Not specified'}</p>
+                                            <p class="card-text"><strong>Booked on:</strong> ${new Date(booking.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                        <div class="col-md-6 text-md-end">
+                                            <p class="card-text"><small class="text-muted">Booking ID: ${booking.id}</small></p>
+                                            <button class="btn btn-sm btn-outline-primary view-ticket-btn" data-booking-id="${booking.id}">View Ticket</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            bookingsList.appendChild(bookingCard);
+                        });
+                        
+                        // Helper function to format date
+                        function formatDate(dateString) {
+                            if (!dateString) return 'Not specified';
+                            
+                            try {
+                                const date = new Date(dateString);
+                                return date.toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                });
+                            } catch (error) {
+                                console.error('Error formatting date:', error);
+                                return dateString || 'Not specified';
+                            }
+                        }
+
+                        // Add event listeners to view ticket buttons
+                        document.querySelectorAll('.view-ticket-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const bookingId = this.getAttribute('data-booking-id');
+                                alert(`Ticket for booking #${bookingId} will be displayed here.`);
+                                // In a real app, you would show a modal with the ticket details
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching bookings:', error);
+                        document.getElementById('loadingBookings').classList.add('d-none');
+                        document.getElementById('noBookingsMessage').classList.remove('d-none');
+                        document.getElementById('noBookingsMessage').innerHTML = `
+                            <p>Error loading your bookings. Please try again.</p>
+                            <button class="btn btn-primary retry-btn">Retry</button>
+                        `;
+                        
+                        document.querySelector('.retry-btn').addEventListener('click', function() {
+                            fetchUserBookings(type);
+                        });
+                    });
+            }
+        });
+    </script>
+    
+    <style>
+        .avatar {
+            width: 100px;
+            height: 100px;
+            font-size: 40px;
+        }
+        .booking-card {
+            transition: transform 0.2s ease;
+            border-left: 4px solid #007bff;
+        }
+        .booking-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .seat-info {
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .btn-group .btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</body>
+</html> 

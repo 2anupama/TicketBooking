@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - Cinema Ticket Booking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">Cinema Ticket Booking</a>
+            <div class="d-flex">
+                <a href="/profile" class="btn btn-outline-light me-2">My Profile</a>
+                <button id="logoutBtn" class="btn btn-outline-light">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Payment for Your Booking</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="booking-summary mb-4">
+                            <h6 class="card-subtitle mb-3 text-muted">Booking Summary</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Movie:</strong> <span id="summaryMovie">-</span></p>
+                                    <p><strong>Date:</strong> <span id="summaryDate">-</span></p>
+                                    <p><strong>Show Time:</strong> <span id="summaryShowTime">-</span></p>
+                                    <p><strong>Seat(s):</strong> <span id="summarySeats">-</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Ticket Price:</strong> <span id="summaryTicketPrice">-</span></p>
+                                    <p><strong>Convenience Fee:</strong> <span id="summaryFee">$1.00</span></p>
+                                    <p><strong>Total Amount:</strong> <span id="summaryTotal" class="fw-bold">-</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="payment-form">
+                            <h6 class="card-subtitle mb-3 text-muted">Payment Details</h6>
+                            <form id="paymentForm">
+                                <div class="mb-3">
+                                    <label for="cardName" class="form-label">Name on Card</label>
+                                    <input type="text" class="form-control" id="cardName" placeholder="John Smith" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="cardNumber" class="form-label">Card Number</label>
+                                    <input type="text" class="form-control" id="cardNumber" placeholder="4111 1111 1111 1111" required>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="expiryDate" class="form-label">Expiry Date</label>
+                                        <input type="text" class="form-control" id="expiryDate" placeholder="MM/YY" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="cvv" class="form-label">CVV</label>
+                                        <input type="text" class="form-control" id="cvv" placeholder="123" required>
+                                    </div>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="saveCard">
+                                    <label class="form-check-label" for="saveCard">
+                                        Save this card for future payments
+                                    </label>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-lg">Pay Now</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Success Modal -->
+    <div class="modal fade" id="paymentSuccessModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Payment Successful!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="success-checkmark">
+                            <div class="check-icon">
+                                <span class="icon-line line-tip"></span>
+                                <span class="icon-line line-long"></span>
+                                <div class="icon-circle"></div>
+                                <div class="icon-fix"></div>
+                            </div>
+                        </div>
+                        <h4 class="text-success mb-3">Payment Completed!</h4>
+                        <p>Your booking has been confirmed.</p>
+                        <p>A confirmation email has been sent to your registered email address.</p>
+                    </div>
+                    <div class="booking-details p-3 bg-light rounded">
+                        <p class="mb-1"><strong>Booking ID:</strong> <span id="confirmationBookingId">-</span></p>
+                        <p class="mb-1"><strong>Movie:</strong> <span id="confirmationMovie">-</span></p>
+                        <p class="mb-1"><strong>Date:</strong> <span id="confirmationDate">-</span></p>
+                        <p class="mb-1"><strong>Show Time:</strong> <span id="confirmationShowTime">-</span></p>
+                        <p class="mb-1"><strong>Seat(s):</strong> <span id="confirmationSeats">-</span></p>
+                        <p class="mb-0"><strong>Amount Paid:</strong> <span id="confirmationAmount">-</span></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="/profile" class="btn btn-secondary">View My Bookings</a>
+                    <a href="/booking" class="btn btn-primary">Book More Tickets</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            fetch('/api/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.authenticated) {
+                        window.location.href = '/login';
+                    } else {
+                        loadBookingDetails();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking auth status:', error);
+                    window.location.href = '/login';
+                });
+
+            // Logout button event
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        window.location.href = '/';
+                    }
+                } catch (error) {
+                    console.error('Error during logout:', error);
+                }
+            });
+
+            // Load booking details from local storage
+            function loadBookingDetails() {
+                const bookingData = JSON.parse(localStorage.getItem('pendingBooking'));
+                
+                if (!bookingData) {
+                    window.location.href = '/booking';
+                    return;
+                }
+                
+                // Set summary details
+                document.getElementById('summaryMovie').textContent = bookingData.movieTitle;
+                
+                // Format date nicely
+                const dateObj = bookingData.showDate ? new Date(bookingData.showDate) : null;
+                const formattedDate = dateObj ? dateObj.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }) : 'Not specified';
+                document.getElementById('summaryDate').textContent = formattedDate;
+                
+                document.getElementById('summaryShowTime').textContent = bookingData.showTime;
+                document.getElementById('summarySeats').textContent = bookingData.seats.join(', ');
+                document.getElementById('summaryTicketPrice').textContent = `$${bookingData.ticketPrice.toFixed(2)}`;
+                
+                const totalAmount = bookingData.ticketPrice + 1.00; // Adding convenience fee
+                document.getElementById('summaryTotal').textContent = `$${totalAmount.toFixed(2)}`;
+            }
+
+            // Handle payment form submission
+            document.getElementById('paymentForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Simulate payment processing
+                const paymentBtn = e.target.querySelector('button[type="submit"]');
+                paymentBtn.disabled = true;
+                paymentBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processing...';
+                
+                // Simulate a network request
+                setTimeout(() => {
+                    const bookingData = JSON.parse(localStorage.getItem('pendingBooking'));
+                    
+                    // Actually send booking data to server
+                    saveBookingToDatabase(bookingData).then(bookingResponse => {
+                        // Update confirmation modal
+                        document.getElementById('confirmationBookingId').textContent = bookingResponse.id;
+                        document.getElementById('confirmationMovie').textContent = bookingData.movieTitle;
+                        
+                        // Format date for confirmation
+                        const dateObj = bookingData.showDate ? new Date(bookingData.showDate) : null;
+                        const formattedDate = dateObj ? dateObj.toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) : 'Not specified';
+                        document.getElementById('confirmationDate').textContent = formattedDate;
+                        
+                        document.getElementById('confirmationShowTime').textContent = bookingData.showTime;
+                        document.getElementById('confirmationSeats').textContent = bookingData.seats.join(', ');
+                        document.getElementById('confirmationAmount').textContent = `$${(bookingData.ticketPrice + 1.00).toFixed(2)}`;
+                        
+                        // Show success modal
+                        const successModal = new bootstrap.Modal(document.getElementById('paymentSuccessModal'));
+                        successModal.show();
+                        
+                        // Clear the pending booking
+                        localStorage.removeItem('pendingBooking');
+                        
+                        // Reset button
+                        paymentBtn.disabled = false;
+                        paymentBtn.innerHTML = 'Pay Now';
+                    }).catch(error => {
+                        console.error('Error saving booking:', error);
+                        alert('There was an error processing your booking. Please try again.');
+                        paymentBtn.disabled = false;
+                        paymentBtn.innerHTML = 'Pay Now';
+                    });
+                }, 2000);
+            });
+
+            // Function to save booking to database
+            async function saveBookingToDatabase(bookingData) {
+                console.log("Saving booking data:", bookingData);
+                // For each seat, create a booking record
+                const bookingPromises = bookingData.seatIds.map(async (seatId, index) => {
+                    const response = await fetch('/api/book', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            movieId: bookingData.movieId,
+                            showDate: bookingData.showDate,
+                            showTime: bookingData.showTime,
+                            seatId: seatId
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to book seat');
+                    }
+                    
+                    return response.json();
+                });
+                
+                // Wait for all booking requests to complete
+                const results = await Promise.all(bookingPromises);
+                return results[0]; // Return the first booking response for confirmation
+            }
+        });
+    </script>
+    
+    <style>
+        /* Success checkmark animation */
+        .success-checkmark {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+        }
+        .success-checkmark .check-icon {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            border-radius: 50%;
+            box-sizing: content-box;
+            border: 4px solid #4CAF50;
+        }
+        .success-checkmark .check-icon::before {
+            content: "";
+            position: absolute;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            animation: fill-check 0.4s ease-in-out 0.4s forwards;
+        }
+        .success-checkmark .check-icon .icon-line {
+            height: 5px;
+            background-color: #4CAF50;
+            display: block;
+            border-radius: 2px;
+            position: absolute;
+            z-index: 10;
+        }
+        .success-checkmark .check-icon .icon-line.line-tip {
+            top: 46px;
+            left: 14px;
+            width: 25px;
+            transform: rotate(45deg);
+            animation: icon-line-tip 0.75s;
+        }
+        .success-checkmark .check-icon .icon-line.line-long {
+            top: 38px;
+            right: 8px;
+            width: 47px;
+            transform: rotate(-45deg);
+            animation: icon-line-long 0.75s;
+        }
+        .success-checkmark .check-icon .icon-circle {
+            top: -4px;
+            left: -4px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            position: absolute;
+            box-sizing: content-box;
+            border: 4px solid rgba(76, 175, 80, 0.5);
+        }
+        @keyframes icon-line-tip {
+            0% { width: 0; left: 1px; top: 19px; }
+            54% { width: 0; left: 1px; top: 19px; }
+            70% { width: 25px; left: 14px; top: 46px; }
+            84% { width: 17px; left: 21px; top: 40px; }
+            100% { width: 25px; left: 14px; top: 46px; }
+        }
+        @keyframes icon-line-long {
+            0% { width: 0; right: 46px; top: 54px; }
+            65% { width: 0; right: 46px; top: 54px; }
+            84% { width: 55px; right: 0; top: 35px; }
+            100% { width: 47px; right: 8px; top: 38px; }
+        }
+    </style>
+</body>
+</html> 

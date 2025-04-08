@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Tickets - Cinema Ticket Booking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">Cinema Ticket Booking</a>
+            <div>
+                <a href="/profile" class="btn btn-outline-light me-2">My Profile</a>
+                <button id="logoutBtn" class="btn btn-outline-light d-none">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Select Movie</h5>
+                    </div>
+                    <div class="card-body">
+                        <select id="movieSelect" class="form-select">
+                            <option value="">Choose a movie...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Select Date</h5>
+                    </div>
+                    <div class="card-body">
+                        <select id="dateSelect" class="form-select" disabled>
+                            <option value="">Choose a date...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Select Show Time</h5>
+                    </div>
+                    <div class="card-body">
+                        <select id="showTimeSelect" class="form-select" disabled>
+                            <option value="">Choose a show time...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Booking Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Selected Movie: <span id="selectedMovie">-</span></p>
+                        <p>Selected Date: <span id="selectedDate">-</span></p>
+                        <p>Show Time: <span id="selectedTime">-</span></p>
+                        <p>Selected Seats: <span id="selectedSeats">-</span></p>
+                        <p>Total Price: <span id="totalPrice">$0</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Select Seats</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="screen-container">
+                            <div class="screen">Screen</div>
+                        </div>
+                        
+                        <!-- Seat Legend -->
+                        <div class="seat-legend">
+                            <div class="legend-item">
+                                <div class="legend-box legend-available"></div>
+                                <span>Available</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-box legend-selected"></div>
+                                <span>Selected</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-box legend-booked"></div>
+                                <span>Booked</span>
+                            </div>
+                        </div>
+                        
+                        <div id="seatsContainer" class="seats-container mt-4">
+                            <!-- Seats will be generated here -->
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading seats...</span>
+                                </div>
+                                <p class="mt-2">Loading available seats...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Complete Booking</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="bookingForm">
+                            <button type="submit" class="btn btn-primary" id="bookButton" disabled>Proceed to Payment</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Required Modal -->
+    <div class="modal fade" id="loginRequiredModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Login Required</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Please login to book tickets.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <a href="/login" class="btn btn-primary">Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is logged in
+            fetch('/api/check-auth')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.authenticated) {
+                        // If not authenticated, redirect to login page with return URL
+                        window.location.href = '/login?redirect=/booking';
+                    } else {
+                        // User is authenticated, load content
+                        loadMovies();
+                        updateUIForLoggedInUser();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking auth status:', error);
+                    window.location.href = '/login?redirect=/booking';
+                });
+
+            // Update UI for logged in user
+            function updateUIForLoggedInUser() {
+                document.getElementById('logoutBtn').classList.remove('d-none');
+            }
+
+            // Logout button event
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST'
+                    });
+                    if (response.ok) {
+                        window.location.href = '/';
+                    }
+                } catch (error) {
+                    console.error('Error during logout:', error);
+                }
+            });
+
+            let selectedMovie = null;
+            let selectedDate = '';
+            let selectedShowTime = '';
+            let selectedSeats = [];
+            let ticketPrice = 0;
+            let allSeats = [];
+
+            // Load movies
+            function loadMovies() {
+                fetch('/api/movies')
+                    .then(response => response.json())
+                    .then(movies => {
+                        console.log("Movies loaded:", movies); // Debug log
+                        const movieSelect = document.getElementById('movieSelect');
+                        movies.forEach(movie => {
+                            const option = document.createElement('option');
+                            option.value = movie.id;
+                            option.textContent = `${movie.title} - $${movie.price.toFixed(2)}`;
+                            option.dataset.price = movie.price;
+                            option.dataset.title = movie.title;
+                            option.dataset.showDates = JSON.stringify(movie.showDates || []);
+                            option.dataset.showTimes = JSON.stringify(movie.showTimes || []);
+                            movieSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error loading movies:', error));
+            }
+
+            // Movie select change event
+            document.getElementById('movieSelect').addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const dateSelect = document.getElementById('dateSelect');
+                
+                dateSelect.innerHTML = '<option value="">Choose a date...</option>';
+                dateSelect.disabled = true;
+                
+                document.getElementById('showTimeSelect').innerHTML = '<option value="">Choose a show time...</option>';
+                document.getElementById('showTimeSelect').disabled = true;
+                
+                if (this.value) {
+                    selectedMovie = {
+                        id: parseInt(this.value),
+                        title: selectedOption.dataset.title,
+                        price: parseFloat(selectedOption.dataset.price)
+                    };
+                    
+                    // Populate dates dropdown
+                    let showDates = [];
+                    try {
+                        showDates = JSON.parse(selectedOption.dataset.showDates);
+                        console.log("Show dates for selected movie:", showDates); // Debug log
+                    } catch (e) {
+                        console.error("Error parsing show dates:", e);
+                        showDates = [];
+                    }
+                    
+                    if (Array.isArray(showDates) && showDates.length > 0) {
+                        showDates.forEach(date => {
+                            try {
+                                const option = document.createElement('option');
+                                option.value = date;
+                                // Format the date nicely (e.g., "Friday, March 1, 2024")
+                                const dateObj = new Date(date);
+                                console.log("Parsing date:", date, "to", dateObj); // Debug log
+                                if (isNaN(dateObj.getTime())) {
+                                    // Invalid date, use the raw string
+                                    option.textContent = date;
+                                } else {
+                                    option.textContent = dateObj.toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    });
+                                }
+                                dateSelect.appendChild(option);
+                            } catch (e) {
+                                console.error("Error creating date option:", e);
+                            }
+                        });
+                        
+                        dateSelect.disabled = false;
+                    } else {
+                        // If no dates are available, add a default option
+                        const option = document.createElement('option');
+                        option.value = "2024-03-01"; // Default date as fallback
+                        option.textContent = "March 1, 2024";
+                        dateSelect.appendChild(option);
+                        dateSelect.disabled = false;
+                        console.warn("No dates found, using fallback date");
+                    }
+                    
+                    document.getElementById('selectedMovie').textContent = selectedMovie.title;
+                    ticketPrice = selectedMovie.price;
+                } else {
+                    selectedMovie = null;
+                    document.getElementById('selectedMovie').textContent = '-';
+                    ticketPrice = 0;
+                }
+                
+                // Reset date, time and seats
+                selectedDate = '';
+                selectedShowTime = '';
+                document.getElementById('selectedDate').textContent = '-';
+                document.getElementById('selectedTime').textContent = '-';
+                clearSeats();
+                updateBookingDetails();
+            });
+            
+            // Date select change event
+            document.getElementById('dateSelect').addEventListener('change', function() {
+                selectedDate = this.value;
+                document.getElementById('selectedDate').textContent = selectedDate ? 
+                    new Date(selectedDate).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }) : '-';
+                
+                const showTimeSelect = document.getElementById('showTimeSelect');
+                showTimeSelect.innerHTML = '<option value="">Choose a show time...</option>';
+                
+                if (selectedMovie && selectedDate) {
+                    const selectedOption = document.getElementById('movieSelect').options[document.getElementById('movieSelect').selectedIndex];
+                    const showTimes = JSON.parse(selectedOption.dataset.showTimes);
+                    
+                    showTimes.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        showTimeSelect.appendChild(option);
+                    });
+                    
+                    showTimeSelect.disabled = false;
+                } else {
+                    showTimeSelect.disabled = true;
+                }
+                
+                selectedShowTime = '';
+                document.getElementById('selectedTime').textContent = '-';
+                clearSeats();
+                updateBookingDetails();
+            });
+
+            // Show time select change event
+            document.getElementById('showTimeSelect').addEventListener('change', function() {
+                selectedShowTime = this.value;
+                document.getElementById('selectedTime').textContent = selectedShowTime || '-';
+                
+                if (selectedMovie && selectedDate && selectedShowTime) {
+                    loadSeats();
+                } else {
+                    clearSeats();
+                }
+                
+                updateBookingDetails();
+            });
+
+            // Load seats
+            function loadSeats() {
+                // Clear previous selections and update booking details
+                selectedSeats = [];
+                updateBookingDetails();
+                
+                // Show loading indicator
+                document.getElementById('seatsContainer').innerHTML = `
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading available seats...</p>
+                    </div>
+                `;
+                
+                const movieId = document.getElementById('movieSelect').value;
+                const selectedDate = document.getElementById('dateSelect').value;
+                const selectedTime = document.getElementById('showTimeSelect').value;
+                
+                console.log(`Loading seats for Movie ID: ${movieId}, Date: ${selectedDate}, Time: ${selectedTime}`);
+                
+                // Create URL with parameters
+                const params = new URLSearchParams();
+                params.append('showId', movieId);
+                if (selectedDate) params.append('showDate', selectedDate);
+                if (selectedTime) params.append('showTime', selectedTime);
+                
+                fetch(`/api/seats?${params.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            console.error(`Error fetching seats: ${response.status} ${response.statusText}`);
+                            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                        }
+                        return response.text().then(text => {
+                            console.log("Raw response:", text);
+                            try {
+                                return JSON.parse(text);
+                            } catch (e) {
+                                console.error("Error parsing JSON:", e);
+                                throw new Error("Invalid JSON response from server");
+                            }
+                        });
+                    })
+                    .then(seats => {
+                        console.log(`Got ${seats.length} seats from server:`, seats);
+                        displaySeats(seats);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching seats:', error);
+                        document.getElementById('seatsContainer').innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <p>Failed to load seats: ${error.message}</p>
+                                <button class="btn btn-primary mt-2" onclick="loadSeats()">Retry</button>
+                            </div>
+                        `;
+                    });
+            }
+
+            function displaySeats(seats) {
+                const container = document.getElementById('seatsContainer');
+                
+                // If no seats are available
+                if (!seats || seats.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning" role="alert">
+                            No seats available for this show time. Please try another date or time.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Group seats by row
+                const rows = {};
+                seats.forEach(seat => {
+                    const rowName = seat.number.charAt(0);
+                    if (!rows[rowName]) {
+                        rows[rowName] = [];
+                    }
+                    rows[rowName].push(seat);
+                });
+                
+                // Sort row names
+                const sortedRowNames = Object.keys(rows).sort();
+                
+                let html = '<div class="seat-grid">';
+                
+                // Add row labels and seats
+                sortedRowNames.forEach(rowName => {
+                    // Sort seats within the row
+                    const rowSeats = rows[rowName].sort((a, b) => {
+                        const aNum = parseInt(a.number.substring(1));
+                        const bNum = parseInt(b.number.substring(1));
+                        return aNum - bNum;
+                    });
+                    
+                    html += `<div class="seat-row">
+                               <div class="row-label">${rowName}</div>`;
+                    
+                    rowSeats.forEach(seat => {
+                        const seatClass = seat.isBooked ? 'seat booked' : 'seat available';
+                        html += `<div class="seat-container">
+                                  <div class="${seatClass}" data-seat-id="${seat.id}" data-seat-number="${seat.number}">
+                                    ${seat.number.substring(1)}
+                                  </div>
+                                </div>`;
+                    });
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                // Add event listeners to available seats
+                document.querySelectorAll('.seat.available').forEach(seatElement => {
+                    seatElement.addEventListener('click', function() {
+                        const seatId = this.getAttribute('data-seat-id');
+                        const seatNumber = this.getAttribute('data-seat-number');
+                        toggleSeatSelection(seatId, seatNumber, this);
+                    });
+                });
+            }
+
+            // Toggle seat selection
+            function toggleSeatSelection(seatId, seatNumber, seatElement) {
+                const seatIndex = selectedSeats.findIndex(s => s.id === seatId);
+                
+                if (seatIndex === -1) {
+                    // Add seat to selection
+                    selectedSeats.push({ id: seatId, number: seatNumber });
+                    seatElement.classList.add('selected');
+                } else {
+                    // Remove seat from selection
+                    selectedSeats.splice(seatIndex, 1);
+                    seatElement.classList.remove('selected');
+                }
+                
+                updateBookingDetails();
+            }
+
+            // Clear seats
+            function clearSeats() {
+                const seatsContainer = document.getElementById('seatsContainer');
+                seatsContainer.innerHTML = '';
+                selectedSeats = [];
+                updateBookingDetails();
+            }
+
+            // Update booking details
+            function updateBookingDetails() {
+                const seatsText = selectedSeats.map(seat => seat.number).join(', ');
+                document.getElementById('selectedSeats').textContent = seatsText || '-';
+                
+                const totalAmount = selectedSeats.length * ticketPrice;
+                document.getElementById('totalPrice').textContent = `$${totalAmount.toFixed(2)}`;
+                
+                // Enable/disable booking button
+                const bookButton = document.getElementById('bookButton');
+                bookButton.disabled = !(selectedMovie && selectedDate && selectedShowTime && selectedSeats.length > 0);
+            }
+
+            // Booking form submission
+            document.getElementById('bookingForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                fetch('/api/check-auth')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.authenticated) {
+                            const loginModal = new bootstrap.Modal(document.getElementById('loginRequiredModal'));
+                            loginModal.show();
+                            return;
+                        }
+                        
+                        // Save booking details to local storage for payment page
+                        const pendingBooking = {
+                            movieId: selectedMovie.id,
+                            movieTitle: selectedMovie.title,
+                            showDate: selectedDate,
+                            showTime: selectedShowTime,
+                            seats: selectedSeats.map(seat => seat.number),
+                            seatIds: selectedSeats.map(seat => seat.id),
+                            ticketPrice: selectedSeats.length * ticketPrice
+                        };
+                        
+                        localStorage.setItem('pendingBooking', JSON.stringify(pendingBooking));
+                        
+                        // Navigate to payment page
+                        window.location.href = '/payment';
+                    })
+                    .catch(error => {
+                        console.error('Error checking auth status:', error);
+                        const loginModal = new bootstrap.Modal(document.getElementById('loginRequiredModal'));
+                        loginModal.show();
+                    });
+            });
+        });
+    </script>
+</body>
+</html> 
